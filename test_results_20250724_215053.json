@@ -1,0 +1,109 @@
+{
+  "test_timestamp": "2025-07-24T21:50:53.779246",
+  "total_collections": 3,
+  "successful_tests": 3,
+  "failed_tests": 0,
+  "average_accuracy": 34.62987123031406,
+  "min_accuracy": 33.85598141695703,
+  "max_accuracy": 35.38084086093454,
+  "needs_improvement": true,
+  "improvement_threshold": 90.0,
+  "individual_results": [
+    {
+      "collection": "Collection 1",
+      "accuracy": 33.85598141695703,
+      "breakdown": {
+        "structural_similarity": 83.33333333333333,
+        "content_similarity": 0.8710801393728222,
+        "overall_accuracy": 33.85598141695703
+      },
+      "expected_structure": [
+        "metadata",
+        "extracted_sections",
+        "subsection_analysis"
+      ],
+      "actual_structure": [
+        "metadata",
+        "extracted_sections",
+        "subsection_analysis"
+      ],
+      "pdf_files_processed": [
+        "South of France - Traditions and Culture.pdf",
+        "South of France - Cities.pdf",
+        "South of France - Things to Do.pdf",
+        "South of France - History.pdf",
+        "South of France - Restaurants and Hotels.pdf",
+        "South of France - Cuisine.pdf",
+        "South of France - Tips and Tricks.pdf"
+      ],
+      "timestamp": "2025-07-24T21:50:43.812089"
+    },
+    {
+      "collection": "Collection 2",
+      "accuracy": 35.38084086093454,
+      "breakdown": {
+        "structural_similarity": 83.33333333333333,
+        "content_similarity": 3.4125125460020076,
+        "overall_accuracy": 35.38084086093454
+      },
+      "expected_structure": [
+        "metadata",
+        "extracted_sections",
+        "subsection_analysis"
+      ],
+      "actual_structure": [
+        "metadata",
+        "extracted_sections",
+        "subsection_analysis"
+      ],
+      "pdf_files_processed": [
+        "Test Your Acrobat Exporting Skills.pdf",
+        "Learn Acrobat - Generative AI_2.pdf",
+        "The Ultimate PDF Sharing Checklist.pdf",
+        "Learn Acrobat - Generative AI_1.pdf",
+        "Learn Acrobat - Export_2.pdf",
+        "Learn Acrobat - Edit_2.pdf",
+        "Learn Acrobat - Export_1.pdf",
+        "Learn Acrobat - Edit_1.pdf",
+        "Learn Acrobat - Fill and Sign.pdf",
+        "Learn Acrobat - Request e-signatures_2.pdf",
+        "Learn Acrobat - Request e-signatures_1.pdf",
+        "Learn Acrobat - Share_1.pdf",
+        "Learn Acrobat - Create and Convert_1.pdf",
+        "Learn Acrobat - Share_2.pdf",
+        "Learn Acrobat - Create and Convert_2.pdf"
+      ],
+      "timestamp": "2025-07-24T21:50:49.400368"
+    },
+    {
+      "collection": "Collection 3",
+      "accuracy": 34.65279141305059,
+      "breakdown": {
+        "structural_similarity": 83.33333333333333,
+        "content_similarity": 2.199096799528765,
+        "overall_accuracy": 34.65279141305059
+      },
+      "expected_structure": [
+        "metadata",
+        "extracted_sections",
+        "subsection_analysis"
+      ],
+      "actual_structure": [
+        "metadata",
+        "extracted_sections",
+        "subsection_analysis"
+      ],
+      "pdf_files_processed": [
+        "Lunch Ideas.pdf",
+        "Dinner Ideas - Mains_2.pdf",
+        "Dinner Ideas - Mains_3.pdf",
+        "Breakfast Ideas.pdf",
+        "Dinner Ideas - Sides_1.pdf",
+        "Dinner Ideas - Sides_3.pdf",
+        "Dinner Ideas - Sides_2.pdf",
+        "Dinner Ideas - Sides_4.pdf"
+      ],
+      "timestamp": "2025-07-24T21:50:53.779188"
+    }
+  ]
+}

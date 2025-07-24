@@ -1,0 +1,29 @@
+# Models directory (large files, download locally using download_model.py)
+models/
+*.bin
+*.safetensors
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output files (optional - you might want to keep these)
+# output/
