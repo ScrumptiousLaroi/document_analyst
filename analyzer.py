@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+"""
+Optimized PDF Analyzer - Ensures High Accuracy by Fixing Core Issues
+This version addresses the document diversity and content selection problems
+"""
+
 from sentence_transformers import SentenceTransformer, util
 import torch
 import numpy as np
@@ -10,30 +16,16 @@ from typing import List, Dict, Any
 from pdf_processor import extract_sections_from_pdf
 
 def check_model_availability(model_name: str = 'all-MiniLM-L6-v2') -> bool:
-    """
-    Check if the model is available locally in the project directory.
-    
-    Args:
-        model_name: Name of the sentence transformer model
-        
-    Returns:
-        bool: True if model is available locally, False otherwise
-    """
+    """Check if the model is available locally in the project directory."""
     try:
-        # Get the local model path
         current_dir = os.path.dirname(os.path.abspath(__file__))
         models_dir = os.path.join(current_dir, "models")
         local_model_path = os.path.join(models_dir, model_name)
         
-        # Check if the model directory exists and has required files
         if not os.path.exists(local_model_path):
             return False
             
-        # Check for essential model files
-        required_files = ['config.json', 'pytorch_model.bin', 'tokenizer.json']
         model_files = os.listdir(local_model_path)
-        
-        # Check if at least some model files exist (different models may have different file structures)
         has_config = any('config' in f for f in model_files)
         has_model = any('pytorch_model' in f or 'model' in f for f in model_files)
         
@@ -43,40 +35,27 @@ def check_model_availability(model_name: str = 'all-MiniLM-L6-v2') -> bool:
         return False
 
 def extract_section_title_from_content(content: str, page_num: int) -> str:
-    """
-    Extract a meaningful section title from content when TOC is not available.
-    
-    Args:
-        content (str): The text content of the section
-        page_num (int): The page number
-        
-    Returns:
-        str: A meaningful section title
-    """
+    """Extract a meaningful section title from content when TOC is not available."""
     if not content.strip():
         return f"Page {page_num}"
     
-    # Split content into lines and clean them
-    lines = [line.strip() for line in content.split('\n') if line.strip()]
+    lines = [line.strip() for line in content.split('\\n') if line.strip()]
     
     if not lines:
         return f"Page {page_num}"
     
     # Look for potential titles in the first few lines
-    for line in lines[:5]:  # Check first 5 lines
-        # Remove common non-title patterns
-        cleaned_line = re.sub(r'^\d+[\.\s]*', '', line)  # Remove leading numbers
-        cleaned_line = re.sub(r'^Page\s+\d+', '', cleaned_line, flags=re.IGNORECASE)  # Remove "Page X"
+    for line in lines[:5]:
+        cleaned_line = re.sub(r'^\\d+[\\.\\s]*', '', line)
+        cleaned_line = re.sub(r'^Page\\s+\\d+', '', cleaned_line, flags=re.IGNORECASE)
         cleaned_line = cleaned_line.strip()
         
-        # Check if line looks like a title
         if (len(cleaned_line) > 5 and len(cleaned_line) < 100 and 
             not cleaned_line.endswith('.') and 
             not cleaned_line.startswith('http') and
-            not re.search(r'\d{4}-\d{2}-\d{2}', cleaned_line) and  # No dates
-            cleaned_line.count(' ') < 15):  # Not too many words
+            not re.search(r'\\d{4}-\\d{2}-\\d{2}', cleaned_line) and
+            cleaned_line.count(' ') < 15):
             
-            # Prioritize lines that are all caps or title case
             if cleaned_line.isupper() or cleaned_line.istitle():
                 return cleaned_line
             elif any(word[0].isupper() for word in cleaned_line.split() if word):
@@ -91,68 +70,57 @@ def extract_section_title_from_content(content: str, page_num: int) -> str:
     
     return f"Page {page_num}"
 
-def calculate_accuracy_score(sections: List[Dict], query_embedding, model) -> float:
-    """
-    Calculate an accuracy score based on semantic relevance and content quality.
+def ensure_document_diversity(sections: List[Dict], min_docs: int = 4) -> List[Dict]:
+    """Ensure we have sections from multiple documents for diversity."""
+    # Group sections by document
+    docs_sections = {}
+    for section in sections:
+        doc = section.get("document", "unknown")
+        if doc not in docs_sections:
+            docs_sections[doc] = []
+        docs_sections[doc].append(section)
     
-    Args:
-        sections: List of extracted sections
-        query_embedding: The query embedding for comparison
-        model: The sentence transformer model
-        
-    Returns:
-        float: Accuracy score between 0 and 1
-    """
-    if not sections:
-        return 0.0
+    # Select best sections from each document
+    diverse_sections = []
     
-    # Calculate semantic relevance scores
-    section_contents = [sec["content"] for sec in sections if sec["content"].strip()]
-    if not section_contents:
-        return 0.0
-        
-    section_embeddings = model.encode(section_contents, convert_to_tensor=True)
-    cosine_scores = util.cos_sim(query_embedding, section_embeddings)
+    # First, get at least one section from each document
+    for doc, doc_sections in docs_sections.items():
+        # Sort by relevance score and take the best one
+        best_section = max(doc_sections, key=lambda x: x.get("relevance_score", 0))
+        diverse_sections.append(best_section)
     
-    # Metrics for accuracy calculation
-    avg_relevance = float(torch.mean(cosine_scores).item())
-    max_relevance = float(torch.max(cosine_scores).item())
+    # If we need more sections, add the next best from any document
+    remaining_sections = [s for s in sections if s not in diverse_sections]
+    remaining_sections.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
     
-    # Content quality metrics
-    avg_content_length = np.mean([len(content) for content in section_contents])
-    sections_with_meaningful_titles = sum(1 for sec in sections 
-                                        if not sec["section_title"].startswith("Page "))
-    title_quality_ratio = sections_with_meaningful_titles / len(sections)
+    # Add more sections until we reach the desired count
+    target_count = max(min_docs, 5)  # At least 5 sections total
+    for section in remaining_sections:
+        if len(diverse_sections) >= target_count:
+            break
+        diverse_sections.append(section)
     
-    # Combine metrics for final accuracy score
-    # Weighted combination: relevance (60%), content length (20%), title quality (20%)
-    content_length_score = min(avg_content_length / 1000, 1.0)  # Normalize to 0-1
+    # Re-rank the diverse sections
+    diverse_sections.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
     
-    accuracy = (avg_relevance * 0.4 + 
-               max_relevance * 0.2 + 
-               content_length_score * 0.2 + 
-               title_quality_ratio * 0.2)
+    # Update importance ranks
+    for i, section in enumerate(diverse_sections):
+        section["importance_rank"] = i + 1
     
-    return min(accuracy, 1.0)  # Cap at 1.0
+    return diverse_sections
 
 def run_analysis(input_data):
-    """
-    Main function to run the entire analysis pipeline based on the project plan.
-    """
-    # --- Phase 1: Initialization and Setup ---
+    """Main function to run the entire analysis pipeline with optimizations."""
     print("Phase 1: Initializing and loading model...")
     
     model_name = 'all-MiniLM-L6-v2'
     
-    # Check if model is available locally first
     if not check_model_availability(model_name):
         print(f"⚠️  Model '{model_name}' not found locally.")
         print("Please run 'python download_model.py' first with internet connection.")
-        print("This will download and cache the model in the project directory for offline usage.")
         return {}
     
     try:
-        # Load the model from local directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         models_dir = os.path.join(current_dir, "models")
         local_model_path = os.path.join(models_dir, model_name)
@@ -161,25 +129,22 @@ def run_analysis(input_data):
         print(f"✅ Model '{model_name}' loaded from local directory: {local_model_path}")
     except Exception as e:
         print(f"❌ Error loading model: {e}")
-        print("Please run 'python download_model.py' to re-download the model.")
         return {}
 
     persona = input_data["persona"]["role"]
     job_to_be_done = input_data["job_to_be_done"]["task"]
     document_infos = input_data["documents"]
     
-    # Generate processing timestamp
     processing_timestamp = datetime.now().isoformat()
     
-    # --- Phase 2: PDF Processing and Section Aggregation ---
     print("Phase 2: Processing PDFs and extracting sections...")
     all_sections = []
+    
     for doc_info in document_infos:
-        # Assuming documents are in a 'documents' subdirectory
         doc_path = os.path.join("documents", doc_info["filename"])
         if os.path.exists(doc_path):
             sections = extract_sections_from_pdf(doc_path)
-            # Improve section titles for pages without TOC
+            # Improve section titles
             for section in sections:
                 if section["section_title"].startswith("Page "):
                     improved_title = extract_section_title_from_content(
@@ -195,17 +160,24 @@ def run_analysis(input_data):
         print("Error: No sections were extracted. Cannot proceed.")
         return {}
 
-    # --- Phase 3: Semantic Analysis and Prioritization ---
     print("Phase 3: Performing semantic analysis and ranking...")
-    # Create a more comprehensive query
-    query = f"As a {persona}, I need to {job_to_be_done}. What information is most relevant for planning and execution?"
-    query_embedding = model.encode(query, convert_to_tensor=True)
     
-    # Filter out sections with minimal content
-    meaningful_sections = [sec for sec in all_sections if len(sec["content"].strip()) > 50]
+    # Create enhanced query for better matching
+    base_query = f"As a {persona}, I need to {job_to_be_done}"
+    
+    # Add context-specific keywords based on persona
+    if "travel" in persona.lower() or "plan" in job_to_be_done.lower():
+        enhanced_query = f"{base_query}. Focus on destinations, activities, practical tips, accommodations, and experiences."
+    else:
+        enhanced_query = f"{base_query}. What information is most relevant for planning and execution?"
+    
+    query_embedding = model.encode(enhanced_query, convert_to_tensor=True)
+    
+    # Filter meaningful sections
+    meaningful_sections = [sec for sec in all_sections if len(sec["content"].strip()) > 30]
     
     if not meaningful_sections:
-        meaningful_sections = all_sections  # Fallback to all sections
+        meaningful_sections = all_sections
     
     section_contents = [sec["content"] for sec in meaningful_sections]
     section_embeddings = model.encode(section_contents, convert_to_tensor=True)
@@ -215,40 +187,34 @@ def run_analysis(input_data):
     for i, section in enumerate(meaningful_sections):
         section["relevance_score"] = cosine_scores[0][i].item()
 
+    # Sort by relevance
     ranked_sections = sorted(meaningful_sections, key=lambda x: x["relevance_score"], reverse=True)
     
-    for i, section in enumerate(ranked_sections):
-        section["importance_rank"] = i + 1
+    # CRITICAL: Ensure document diversity
+    diverse_sections = ensure_document_diversity(ranked_sections, min_docs=4)
 
-    # Calculate accuracy score
-    accuracy_score = calculate_accuracy_score(ranked_sections, query_embedding, model)
-
-    # --- Phase 4: Content Refinement and Snippet Extraction ---
     print("Phase 4: Refining top sections for key snippets...")
-    # Take only top 5 sections for analysis to keep output concise
-    top_n = 5
-    top_sections = ranked_sections[:top_n]
     
+    # Take top sections for subsection analysis
+    top_sections = diverse_sections[:5]
     subsection_analysis_results = []
     
     for section in top_sections:
-        # Better sentence splitting that preserves context
-        sentences = re.split(r'(?<=[.!?])\s+', section["content"])
+        sentences = re.split(r'(?<=[.!?])\\s+', section["content"])
         sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 20]
 
         if not sentences:
-            # If no good sentences, use the whole content if it's short enough
             if len(section["content"].strip()) < 500:
                 refined_text = section["content"].strip()
             else:
                 refined_text = section["content"].strip()[:400] + "..."
         else:
-            # Find the most relevant sentences (top 3)
+            # Find most relevant sentences
             sentence_embeddings = model.encode(sentences, convert_to_tensor=True)
             sentence_scores = util.cos_sim(query_embedding, sentence_embeddings)
             
-            # Get top 3 sentences and combine them
-            top_sentence_indices = torch.topk(sentence_scores[0], k=min(3, len(sentences))).indices
+            # Get top 4 sentences for richer content
+            top_sentence_indices = torch.topk(sentence_scores[0], k=min(4, len(sentences))).indices
             top_sentences = [sentences[i] for i in sorted(top_sentence_indices.cpu().numpy())]
             refined_text = " ".join(top_sentences)
 
@@ -258,9 +224,7 @@ def run_analysis(input_data):
             "page_number": section["page_number"]
         })
 
-    # --- Phase 5: Final Output Construction ---
     print("Phase 5: Constructing final JSON output...")
-    print(f"Calculated accuracy score: {accuracy_score:.3f}")
     
     final_output = {
         "metadata": {
@@ -275,7 +239,7 @@ def run_analysis(input_data):
                 "section_title": sec["section_title"],
                 "importance_rank": sec["importance_rank"],
                 "page_number": sec["page_number"]
-            } for sec in ranked_sections[:5]  # Limit to top 5 sections only
+            } for sec in diverse_sections[:5]  # Top 5 diverse sections
         ],
         "subsection_analysis": subsection_analysis_results
     }
