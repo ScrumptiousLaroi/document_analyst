@@ -1,0 +1,2 @@
+# This file ensures the output folder is tracked by Git
+# Analysis results will be saved in this directory as JSON files
